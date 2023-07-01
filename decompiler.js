@@ -1,10 +1,20 @@
 class LuaDecompiler {
-	constructor(luaBin) {
+	constructor(luaBin,debug = true) {
 		this.binary = luaBin;
 		this.code = "";
 		this.metadata = {};
 		this.registers = {};
+		this.upvalues = [-1];
 		this.indent = 0;
+		this.debug = debug;
+	}
+
+	writeRegister(register) {
+		const isDefined = this.defineRegister(register);	
+		if (!isDefined) {
+			this.code += 'local ';
+		}
+		this.code += `L${register}`;
 	}
 
 	defineRegister(register) {
@@ -20,11 +30,8 @@ class LuaDecompiler {
 		const maxRegister = instr.A + instr.B;
 		for(let i = minRegister; i <= maxRegister; i++) {
 			const register = i;
-			const isDefined = this.defineRegister(register);	
-			if (!isDefined) {
-				this.code += 'local ';
-			}
-			this.code += `L${register} = nil\n`;
+			this.writeRegister(register);
+			this.code += ` = nil\n`;
 		}
 	}
 
@@ -32,21 +39,20 @@ class LuaDecompiler {
 		// Assume it's a local
 		let constant = this.binary.getConstant(funcData.constants, ~instr.Bx);
 		const register = instr.A;
-		const isDefined = this.defineRegister(register);	
-		if (!isDefined) {
-			this.code += 'local ';
-		}
-		this.code += `L${register} = ${constant}\n`;
+		this.writeRegister(register);
+		this.code += ` = ${constant}\n`;
 			
+	}
+
+	decompileCALL(instr, funcData) {
+		this.writeRegister(instr.A);
+		this.code += `() -- todo add arguments\n`;
 	}
 	
 	decompileNEWTABLE(instr, funcData) {
 		const register = instr.A;
-		const isDefined = this.defineRegister(register);	
-		if (!isDefined) {
-			this.code += 'local ';
-		}
-		this.code += `L${register} = {}\n`;
+		this.writeRegister(register);
+		this.code += ` = {}\n`;
 	}
 
 	decompileSETLIST(instr, funcData) {
@@ -60,6 +66,7 @@ class LuaDecompiler {
 			this.code += `L${listRegister}[${idx}] = L${valRegister}\n`;
 		}
 	}
+
 	decompileSETTABLE(instr, funcData) {
 		const register = instr.A;
 		let index = "";
@@ -80,24 +87,20 @@ class LuaDecompiler {
 	}
 
 	decompileGETTABUP(instr, funcData) {
-		if (instr.A != 0) {
-			// Need to do extra stuff
-			this.code += "";
-		}
-		if (instr.B < 0) {
-			let constant = this.binary.getConstant(funcData.constants, ~instr.B, false);
-			this.code += constant + " = ";
-		} else {
-			this.code += "L" + instr.B + " = ";
-		}
-
-		if (instr.C < 0) {
+		this.writeRegister(instr.A);
+		this.code += " = ";
+		// _ENV
+		console.log(instr.B)
+		if (this.upvalues[instr.B] == -1) {
 			let constant = this.binary.getConstant(funcData.constants, ~instr.C, false);
 			this.code += constant;
 		} else {
-			this.code += "L" + instr.C;
-		}
+			this.code += "UV" + instr.B + "[";
+	
+			let constant = this.binary.getConstant(funcData.constants, ~instr.C, true);
+			this.code += constant + "]";
 
+		}
 		this.code += "\n";
 
 	}
@@ -130,10 +133,11 @@ class LuaDecompiler {
 		const funcName = "decompile" + summary.name;
 		const func = this[funcName];
 		if (func) {
+			if (this.debug) this.code += `-- ${funcName} \n`;
 			func.apply(this, [summary, funcData]);
 		} else {
 			// console.log(instr.getPrettySummary(1));
-			console.log(funcName, "is not implemented.");
+			if (this.debug) this.code += `-- ${funcName} is not implemented.\n`;
 		}
 	}
 
