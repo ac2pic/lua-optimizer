@@ -48,11 +48,17 @@ class BinaryReader {
 	
 }
 exports.BinaryReader = BinaryReader;
+
 class LuaBinaryInstruction {
 	constructor(instruction) {
 		this.instruction = instruction.readUInt32LE();
 		this.opcode = this.instruction & 0b11_11_11;
 		this.opmode = LUA_OPMODES[this.opcode];
+	}
+
+
+	getName() {
+		return OPCODE_NAMES[this.opcode];
 	}
 
 	getFormat() {
