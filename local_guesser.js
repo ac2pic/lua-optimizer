@@ -65,6 +65,28 @@ class LocalGuesser extends Walker {
 		}
 	}
 	
+	EQ({B,C}, offset) {
+		// if one has a local then both are temporary 
+		let isTemporary = B >= 0 ? this.registers[B].hasLocal : false;
+		isTemporary |= C >= 0 ? this.registers[C].hasLocal : false;
+		if (B >= 0) {
+			if (isTemporary) {
+				this.registers[B].temporary = true;
+			} else if (!this.registers[B].global) {
+				this.registers[B].condition = true;
+				this.temporary[B][2]++;
+			}
+		}
+
+		if (C >= 0) {
+			if (isTemporary) {
+				this.registers[C].temporary = true;
+			} else if (!this.registers[C].global) {
+				this.registers[C].condition = true;
+				this.temporary[C][2]++;
+			}
+		}
+	}
 	GETTABUP({A}) {
 		this.registers[A] = this.registers[A] || {};
 		this.registers[A].global = true;
